@@ -371,8 +371,9 @@ class App {
     }
 
     drawPhoneBox(phoneBox) {
-        // Mirror x coordinate to match flipped video
-        const mirroredX = this.canvas.width - phoneBox.x - phoneBox.width;
+        // COCO-SSD detects on un-mirrored video, but canvas CSS is mirrored
+        // So we need to mirror the x coordinate
+        const mirroredX = this.video.videoWidth - phoneBox.x - phoneBox.width;
 
         // Draw phone detection box in magenta with alert style
         this.ctx.strokeStyle = '#ec4899';
