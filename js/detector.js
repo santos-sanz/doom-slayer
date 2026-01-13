@@ -1,47 +1,47 @@
 /**
  * Doom Slayer - Face Detection & Doomscroll Detection Module
- * Uses MediaPipe FaceMesh for accurate face landmark detection
+ * Uses MediaPipe FaceMesh for face/gaze tracking + COCO-SSD for phone detection
+ * Detects: looking down, looking away (left/right), not looking at screen
  */
 
 export class DoomscrollDetector {
     constructor(options = {}) {
         this.faceMesh = null;
+        this.phoneDetector = null;
         this.isInitialized = false;
 
-        // Detection parameters (adjustable via settings)
+        // Detection parameters
         this.sensitivity = options.sensitivity || 0.55;
         this.detectionThreshold = options.detectionThreshold || 3;
 
-        // State tracking for stability
+        // State tracking
         this.doomscrollCount = 0;
         this.normalCount = 0;
         this.currentState = 'monitoring';
 
-        // Performance tracking
+        // Phone detection
+        this.phoneDetected = false;
+        this.lastPhoneCheck = 0;
+        this.phoneCheckInterval = 500;
+
+        // Performance
         this.lastDetectionTime = 0;
         this.fps = 0;
 
         // Baseline calibration
-        this.baselineNoseY = null;
+        this.baseline = null;
         this.calibrationFrames = 0;
-        this.calibrationSum = 0;
+        this.calibrationData = [];
     }
 
-    /**
-     * Initialize MediaPipe FaceMesh
-     */
     async initialize() {
         try {
-            console.log('Loading MediaPipe FaceMesh...');
+            console.log('Loading AI models...');
 
-            // Create FaceMesh instance
             this.faceMesh = new FaceMesh({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-                }
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
             });
 
-            // Configure for performance
             this.faceMesh.setOptions({
                 maxNumFaces: 1,
                 refineLandmarks: true,
@@ -49,136 +49,261 @@ export class DoomscrollDetector {
                 minTrackingConfidence: 0.5
             });
 
-            // Set up results handler
             this.latestResults = null;
             this.faceMesh.onResults((results) => {
                 this.latestResults = results;
             });
 
+            console.log('FaceMesh loaded!');
+
+            console.log('Loading phone detector...');
+            this.phoneDetector = await cocoSsd.load();
+            console.log('Phone detector loaded!');
+
             this.isInitialized = true;
-            console.log('MediaPipe FaceMesh loaded successfully!');
             return true;
         } catch (error) {
-            console.error('Failed to load FaceMesh:', error);
+            console.error('Failed to load models:', error);
             return false;
         }
     }
 
+    async detectPhone(video) {
+        if (!this.phoneDetector) return null;
+        try {
+            const predictions = await this.phoneDetector.detect(video);
+            // Lower threshold for phone detection
+            const phone = predictions.find(p => p.class === 'cell phone' && p.score > 0.25);
+            if (phone) {
+                console.log('📱 Phone detected!', phone.score.toFixed(2));
+                return {
+                    detected: true,
+                    box: {
+                        x: phone.bbox[0],
+                        y: phone.bbox[1],
+                        width: phone.bbox[2],
+                        height: phone.bbox[3]
+                    },
+                    score: phone.score
+                };
+            }
+            return null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     /**
-     * Detect faces and analyze if user is doomscrolling
-     * @param {HTMLVideoElement} video - The video element with webcam feed
-     * @returns {Object} Detection result with state and debug info
+     * Calculate comprehensive gaze metrics
      */
+    analyzeGaze(landmarks) {
+        // Eye landmarks
+        const leftEyeOuter = landmarks[33];
+        const leftEyeInner = landmarks[133];
+        const leftEyeTop = landmarks[159];
+        const leftEyeBottom = landmarks[145];
+        const leftIris = landmarks[468];
+
+        const rightEyeOuter = landmarks[263];
+        const rightEyeInner = landmarks[362];
+        const rightEyeTop = landmarks[386];
+        const rightEyeBottom = landmarks[374];
+        const rightIris = landmarks[473];
+
+        // Eye dimensions
+        const leftEyeWidth = leftEyeInner.x - leftEyeOuter.x;
+        const leftEyeHeight = leftEyeBottom.y - leftEyeTop.y;
+        const rightEyeWidth = rightEyeOuter.x - rightEyeInner.x;
+        const rightEyeHeight = rightEyeBottom.y - rightEyeTop.y;
+
+        // Iris position within eye (0-1 scale)
+        // Vertical: 0 = top, 1 = bottom
+        // Horizontal: 0 = outer, 1 = inner
+        const leftIrisVertical = leftEyeHeight > 0.005 ?
+            (leftIris.y - leftEyeTop.y) / leftEyeHeight : 0.5;
+        const rightIrisVertical = rightEyeHeight > 0.005 ?
+            (rightIris.y - rightEyeTop.y) / rightEyeHeight : 0.5;
+
+        const leftIrisHorizontal = leftEyeWidth > 0.01 ?
+            (leftIris.x - leftEyeOuter.x) / leftEyeWidth : 0.5;
+        const rightIrisHorizontal = rightEyeWidth > 0.01 ?
+            (rightIris.x - rightEyeInner.x) / rightEyeWidth : 0.5;
+
+        // Average both eyes
+        const irisVertical = (leftIrisVertical + rightIrisVertical) / 2;
+        const irisHorizontal = (leftIrisHorizontal + rightIrisHorizontal) / 2;
+
+        // Eye openness (for detecting closed eyes or squinting)
+        const avgEyeOpenness = (leftEyeHeight + rightEyeHeight) / 2;
+
+        return {
+            vertical: irisVertical,      // Higher = looking down
+            horizontal: irisHorizontal,  // 0.5 = center, <0.4 = looking right, >0.6 = looking left
+            openness: avgEyeOpenness,
+            leftIris: { v: leftIrisVertical, h: leftIrisHorizontal },
+            rightIris: { v: rightIrisVertical, h: rightIrisHorizontal }
+        };
+    }
+
+    /**
+     * Analyze head pose
+     */
+    analyzeHeadPose(landmarks) {
+        const noseTip = landmarks[1];
+        const chin = landmarks[152];
+        const forehead = landmarks[10];
+        const leftCheek = landmarks[234];
+        const rightCheek = landmarks[454];
+
+        // Vertical tilt (looking up/down)
+        const noseY = noseTip.y;
+        const noseToForehead = noseY - forehead.y;
+        const noseToChin = chin.y - noseY;
+        const faceRatio = noseToChin / (noseToForehead + 0.001);
+
+        // Horizontal rotation (looking left/right)
+        const faceWidth = rightCheek.x - leftCheek.x;
+        const noseCenterOffset = (noseTip.x - leftCheek.x) / (faceWidth + 0.001);
+        // 0.5 = centered, <0.45 = turned right, >0.55 = turned left
+
+        // Face center in frame
+        const faceCenterY = (forehead.y + chin.y) / 2;
+        const faceCenterX = noseTip.x;
+
+        return {
+            noseY,
+            faceRatio,
+            horizontalRotation: noseCenterOffset,
+            faceCenterY,
+            faceCenterX
+        };
+    }
+
     async detectDoomscroll(video) {
         if (!this.isInitialized || !this.faceMesh) {
-            return {
-                isLookingDown: false,
-                state: 'error',
-                message: 'Model not initialized'
-            };
+            return { isLookingDown: false, state: 'error', message: 'Model not initialized' };
         }
 
-        const startTime = performance.now();
-
         try {
-            // Send frame to FaceMesh
             await this.faceMesh.send({ image: video });
 
-            // Calculate FPS
             const now = performance.now();
             this.fps = Math.round(1000 / (now - this.lastDetectionTime));
             this.lastDetectionTime = now;
 
+            // Phone detection
+            if (now - this.lastPhoneCheck > this.phoneCheckInterval) {
+                this.phoneResult = await this.detectPhone(video);
+                this.phoneDetected = this.phoneResult?.detected || false;
+                this.lastPhoneCheck = now;
+            }
+
             const results = this.latestResults;
 
             if (!results || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                return {
-                    isLookingDown: false,
-                    state: 'no-face',
-                    message: 'No face detected',
-                    fps: this.fps
-                };
+                if (this.phoneDetected) {
+                    return this.updateState(true, {
+                        state: 'doomscrolling',
+                        message: '📱 Phone detected!',
+                        phoneDetected: true,
+                        fps: this.fps
+                    });
+                }
+                return { isLookingDown: false, state: 'no-face', message: 'No face detected', fps: this.fps };
             }
 
-            // Get landmarks (468 points for FaceMesh)
             const landmarks = results.multiFaceLandmarks[0];
             const frameHeight = video.videoHeight;
             const frameWidth = video.videoWidth;
 
-            // Key landmark indices for head pose
-            // Nose tip: 1, Chin: 152, Forehead: 10
-            // Left eye: 33, Right eye: 263
-            // Left ear: 234, Right ear: 454
+            // Analyze gaze and head pose
+            const gaze = this.analyzeGaze(landmarks);
+            const head = this.analyzeHeadPose(landmarks);
 
-            const noseTip = landmarks[1];
-            const chin = landmarks[152];
-            const forehead = landmarks[10];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-
-            // Calculate head pose indicators
-            const noseY = noseTip.y;
-            const chinY = chin.y;
-            const foreheadY = forehead.y;
-
-            // Calibrate baseline on first frames with good posture
-            if (this.calibrationFrames < 30 && this.currentState !== 'doomscrolling') {
-                this.calibrationSum += noseY;
+            // Calibration
+            if (this.calibrationFrames < 30) {
+                this.calibrationData.push({ gaze, head });
                 this.calibrationFrames++;
+
                 if (this.calibrationFrames === 30) {
-                    this.baselineNoseY = this.calibrationSum / 30;
-                    console.log('Baseline calibrated:', this.baselineNoseY);
+                    this.baseline = {
+                        gazeVertical: this.calibrationData.reduce((a, b) => a + b.gaze.vertical, 0) / 30,
+                        gazeHorizontal: this.calibrationData.reduce((a, b) => a + b.gaze.horizontal, 0) / 30,
+                        noseY: this.calibrationData.reduce((a, b) => a + b.head.noseY, 0) / 30,
+                        faceRatio: this.calibrationData.reduce((a, b) => a + b.head.faceRatio, 0) / 30,
+                        headRotation: this.calibrationData.reduce((a, b) => a + b.head.horizontalRotation, 0) / 30
+                    };
+                    console.log('Baseline calibrated:', this.baseline);
                 }
+
+                return {
+                    isLookingDown: false,
+                    state: 'monitoring',
+                    message: `Calibrating... ${this.calibrationFrames}/30`,
+                    fps: this.fps
+                };
             }
 
-            // Detection scoring
+            // === DETECTION ALGORITHM (MORE SENSITIVE) ===
             let detectionScore = 0;
+            let reason = '';
 
-            // 1. Head tilt - nose position relative to baseline
-            const baselineY = this.baselineNoseY || 0.35;
-            const noseOffset = noseY - baselineY;
+            // 1. LOOKING DOWN (eyes + head) - LOWERED thresholds
+            const gazeDownOffset = gaze.vertical - this.baseline.gazeVertical;
+            const headDownOffset = head.noseY - this.baseline.noseY;
 
-            if (noseOffset > 0.12) {
-                detectionScore += 3; // Significant head tilt down
-            } else if (noseOffset > 0.08) {
+            if (gazeDownOffset > 0.06 || headDownOffset > 0.04) {
+                detectionScore += 4;
+                reason = 'Looking down';
+            } else if (gazeDownOffset > 0.04 || headDownOffset > 0.025) {
+                detectionScore += 3;
+                reason = 'Looking down';
+            } else if (gazeDownOffset > 0.02 || headDownOffset > 0.015) {
                 detectionScore += 2;
-            } else if (noseOffset > 0.05) {
+                reason = 'Looking down';
+            } else if (gazeDownOffset > 0.01 || headDownOffset > 0.01) {
                 detectionScore += 1;
             }
 
-            // 2. Chin-to-forehead ratio (looking down = chin more visible)
-            const faceVerticalSpan = chinY - foreheadY;
-            const noseToForehead = noseY - foreheadY;
-            const noseToChin = chinY - noseY;
-            const faceRatio = noseToChin / (noseToForehead + 0.001);
-
-            if (faceRatio > 1.4) {
-                detectionScore += 2; // Chin very visible = looking down
-            } else if (faceRatio > 1.2) {
-                detectionScore += 1;
-            }
-
-            // 3. Eye vertical position (eyes lower in frame = looking down)
-            const avgEyeY = (leftEye.y + rightEye.y) / 2;
-            if (avgEyeY > this.sensitivity + 0.1) {
+            // 2. LOOKING AWAY (left/right) - LOWERED thresholds
+            const gazeHorizontalOffset = Math.abs(gaze.horizontal - this.baseline.gazeHorizontal);
+            if (gazeHorizontalOffset > 0.12) {
+                detectionScore += 4;
+                reason = reason || 'Looking away';
+            } else if (gazeHorizontalOffset > 0.08) {
+                detectionScore += 3;
+                reason = reason || 'Looking away';
+            } else if (gazeHorizontalOffset > 0.05) {
                 detectionScore += 2;
-            } else if (avgEyeY > this.sensitivity) {
+            }
+
+            // 3. HEAD TURNED (left/right) - LOWERED thresholds
+            const headRotationOffset = Math.abs(head.horizontalRotation - this.baseline.headRotation);
+            if (headRotationOffset > 0.08) {
+                detectionScore += 3;
+                reason = reason || 'Head turned';
+            } else if (headRotationOffset > 0.05) {
+                detectionScore += 2;
+            } else if (headRotationOffset > 0.03) {
                 detectionScore += 1;
             }
 
-            // 4. Face position in frame
-            const faceCenterY = (foreheadY + chinY) / 2;
-            if (faceCenterY > 0.6) {
-                detectionScore += 1;
+            // 4. PHONE DETECTED
+            if (this.phoneDetected) {
+                detectionScore += 5;
+                reason = '📱 Phone detected';
             }
 
-            // Determine raw detection (threshold: 4)
-            const rawDetection = detectionScore >= 4;
+            // Sensitivity adjustment (stronger effect)
+            const sensitivityBonus = (0.55 - this.sensitivity) * 8;
+            detectionScore += sensitivityBonus;
 
-            // Stabilize detection with frame counting
-            const result = this.updateState(rawDetection);
+            // Lower threshold: 3 instead of 4
+            const rawDetection = detectionScore >= 3;
 
-            // Calculate face bounding box for visualization
+            const result = this.updateState(rawDetection, null, reason);
+
+            // Face bounding box
             const minX = Math.min(...landmarks.map(l => l.x)) * frameWidth;
             const maxX = Math.max(...landmarks.map(l => l.x)) * frameWidth;
             const minY = Math.min(...landmarks.map(l => l.y)) * frameHeight;
@@ -186,35 +311,26 @@ export class DoomscrollDetector {
 
             return {
                 ...result,
-                faceBox: {
-                    x: minX,
-                    y: minY,
-                    width: maxX - minX,
-                    height: maxY - minY
-                },
+                phoneDetected: this.phoneDetected,
+                phoneBox: this.phoneResult?.box || null,
+                faceBox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
                 debug: {
-                    noseOffset: noseOffset.toFixed(3),
-                    faceRatio: faceRatio.toFixed(3),
-                    detectionScore,
+                    noseOffset: headDownOffset.toFixed(3),
+                    eyeGaze: gazeDownOffset.toFixed(3),
+                    lookAway: gazeHorizontalOffset.toFixed(3),
+                    phone: this.phoneDetected ? '📱' : '-',
+                    score: Math.round(detectionScore),
                     fps: this.fps
                 }
             };
 
         } catch (error) {
             console.error('Detection error:', error);
-            return {
-                isLookingDown: false,
-                state: 'error',
-                message: error.message,
-                fps: this.fps
-            };
+            return { isLookingDown: false, state: 'error', message: error.message, fps: this.fps };
         }
     }
 
-    /**
-     * Update state with frame counting for stability
-     */
-    updateState(rawDetection) {
+    updateState(rawDetection, overrideResult = null, reason = '') {
         if (rawDetection) {
             this.doomscrollCount++;
             this.normalCount = 0;
@@ -225,54 +341,38 @@ export class DoomscrollDetector {
 
         if (this.doomscrollCount >= this.detectionThreshold) {
             this.currentState = 'doomscrolling';
-            return {
+            return overrideResult || {
                 isLookingDown: true,
                 state: 'doomscrolling',
-                message: 'Doomscrolling detected!'
+                message: reason || 'Not looking at screen!'
             };
         } else if (this.normalCount >= this.detectionThreshold) {
             this.currentState = 'normal';
-            return {
-                isLookingDown: false,
-                state: 'normal',
-                message: 'Good posture!'
-            };
+            return { isLookingDown: false, state: 'normal', message: 'Good posture!' };
         } else {
-            return {
-                isLookingDown: false,
-                state: 'monitoring',
-                message: 'Monitoring...'
-            };
+            return { isLookingDown: false, state: 'monitoring', message: 'Monitoring...' };
         }
     }
 
-    /**
-     * Update sensitivity setting
-     */
     setSensitivity(value) {
         this.sensitivity = Math.max(0.4, Math.min(0.7, value));
     }
 
-    /**
-     * Reset detection state and calibration
-     */
     reset() {
         this.doomscrollCount = 0;
         this.normalCount = 0;
         this.currentState = 'monitoring';
-        this.baselineNoseY = null;
+        this.phoneDetected = false;
+        this.baseline = null;
         this.calibrationFrames = 0;
-        this.calibrationSum = 0;
+        this.calibrationData = [];
     }
 
-    /**
-     * Force recalibration
-     */
     recalibrate() {
-        this.baselineNoseY = null;
+        this.baseline = null;
         this.calibrationFrames = 0;
-        this.calibrationSum = 0;
-        console.log('Recalibrating baseline...');
+        this.calibrationData = [];
+        console.log('Recalibrating...');
     }
 
     getFPS() {

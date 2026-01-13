@@ -10,7 +10,7 @@
 
 <br />
 
-**AI-powered focus assistant that catches you looking at your phone and roasts you back to productivity.**
+**AI-powered focus assistant that catches you not looking at your screen and roasts you back to productivity.**
 
 *All processing happens locally in your browser. No data ever leaves your device.*
 
@@ -26,13 +26,15 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **AI Face Tracking** | MediaPipe FaceMesh with 468 facial landmarks for accurate head pose detection |
-| � **Live Statistics** | Track focused time, distracted time, and alert count in real-time |
-| �🔥 **Motivational Roasts** | 20+ harsh but effective messages to snap you back to reality |
-| 🎵 **Custom Punishment** | Set your own YouTube video (defaults to the classic Rickroll) |
-| 📌 **Picture-in-Picture** | Float the webcam above other apps for true background monitoring |
-| ⚙️ **Adjustable Sensitivity** | Fine-tune detection to match your posture habits |
-| 🔒 **100% Private** | Zero backend, zero tracking, everything runs client-side |
+| 🎯 **AI Face Tracking** | MediaPipe FaceMesh with 468 facial landmarks |
+| 👁️ **Eye Gaze Detection** | Tracks where your eyes are looking in real-time |
+| 📱 **Phone Detection** | COCO-SSD AI detects smartphones in your webcam view |
+| 📊 **Live Statistics** | Track focused time, distracted time, and alert count |
+| 🔥 **Motivational Roasts** | 20+ harsh but effective messages to snap you back |
+| 🎵 **Custom Punishment** | Set your own YouTube video for punishment |
+| 📌 **Picture-in-Picture** | Float the webcam above other apps |
+| ⚙️ **Adjustable Sensitivity** | Fine-tune detection to match your habits |
+| 🔒 **100% Private** | Zero backend, everything runs client-side |
 
 ---
 
@@ -40,21 +42,15 @@
 
 ### Option 1: Open directly
 ```bash
-# Clone and open
-git clone https://github.com/your-username/doom-slayer.git
+git clone https://github.com/santos-sanz/doom-slayer.git
 cd doom-slayer
 open index.html   # macOS
-# or: xdg-open index.html   # Linux
-# or: start index.html      # Windows
 ```
 
 ### Option 2: Local server (recommended)
 ```bash
-# Python
 python3 -m http.server 8000
-
-# Node.js
-npx serve .
+# or: npx serve .
 ```
 Then open [http://localhost:8000](http://localhost:8000)
 
@@ -62,25 +58,20 @@ Then open [http://localhost:8000](http://localhost:8000)
 
 ## 🧠 How It Works
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Webcam Feed   │ ──▶ │  MediaPipe       │ ──▶ │  Head Pose      │
-│                 │     │  FaceMesh (468   │     │  Analysis       │
-│                 │     │  landmarks)      │     │                 │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
-                                                          │
-                                                          ▼
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   � Roast +    │ ◀── │  State Machine   │ ◀── │  Doomscroll     │
-│   🎵 Rickroll   │     │  (Stability)     │     │  Detection      │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-```
+The app detects when you're **not looking at your screen**:
 
-**Detection Algorithm:**
-1. **Baseline Calibration** - First 30 frames establish your normal posture
-2. **Head Pose Analysis** - Nose/chin/forehead positions detect looking down
-3. **State Stability** - Frame counting prevents false positives
-4. **Punishment Trigger** - Persistent doomscrolling triggers roast + video
+| Detection | Method |
+|-----------|--------|
+| 👇 Looking down | Head tilt + eye gaze tracking |
+| 👈👉 Looking away | Eye iris position (left/right) |
+| 🔄 Head turned | Face rotation analysis |
+| 📱 Phone visible | COCO-SSD object detection |
+
+**Visual Overlays:**
+- 🟢 Face bounding box (color = status)
+- 🟣 Eye tracking boxes
+- 🩷 Phone detection box (when phone visible)
+- 📊 Real-time debug info (head/eyes/score)
 
 ---
 
@@ -88,10 +79,10 @@ Then open [http://localhost:8000](http://localhost:8000)
 
 | Technology | Purpose |
 |------------|---------|
-| **MediaPipe FaceMesh** | 468-point facial landmark detection |
-| **Vanilla JavaScript** | Zero dependencies, pure ES modules |
-| **CSS3** | Glassmorphism, neon accents, animations |
-| **YouTube Embed API** | Punishment video playback |
+| **MediaPipe FaceMesh** | 468-point facial landmark + iris tracking |
+| **TensorFlow.js COCO-SSD** | Phone/object detection |
+| **Vanilla JavaScript** | Zero dependencies, ES modules |
+| **CSS3** | Glassmorphism, neon accents |
 
 ---
 
@@ -100,14 +91,12 @@ Then open [http://localhost:8000](http://localhost:8000)
 ```
 doom-slayer/
 ├── index.html          # Single-page application
-├── css/
-│   └── styles.css      # Premium dark theme
+├── css/styles.css      # Premium dark theme
 ├── js/
 │   ├── app.js          # Main controller & UI
-│   ├── detector.js     # MediaPipe face detection
+│   ├── detector.js     # Face + phone detection
 │   └── roasts.js       # Message collections
-├── README.md
-└── LICENSE
+└── README.md
 ```
 
 ---
@@ -116,22 +105,13 @@ doom-slayer/
 
 ### Vercel (Recommended)
 ```bash
-npm i -g vercel
-vercel
-```
-
-### Netlify
-```bash
-npm i -g netlify-cli
-netlify deploy --prod
+npm i -g vercel && vercel
 ```
 
 ### GitHub Pages
-1. Go to Settings → Pages
-2. Source: Deploy from branch → `main` → `/ (root)`
-3. Done!
+Settings → Pages → Deploy from `main` → `/ (root)`
 
-> **Note:** This is a static site with no backend. Hosting costs are essentially zero.
+> **Note:** Static site with no backend. Hosting is essentially free.
 
 ---
 
@@ -140,19 +120,8 @@ netlify deploy --prod
 | Setting | Default | Location |
 |---------|---------|----------|
 | Sensitivity | 55% | Settings panel |
-| Punishment Video | Rickroll | Settings panel (any YouTube URL) |
-| Roast Cooldown | 3 seconds | `js/app.js` line 49 |
-| Detection Threshold | 3 frames | `js/detector.js` line 12 |
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Ideas:
-- [ ] Sound effects / alarm audio
-- [ ] Session history with charts
-- [ ] Browser extension version
-- [ ] Mobile PWA support
+| Punishment Video | Rickroll | Settings (any YouTube URL) |
+| Detection Threshold | 3 frames | `detector.js` |
 
 ---
 
@@ -165,7 +134,5 @@ MIT License - Free to use, modify, and distribute.
 <div align="center">
 
 **Stay focused. Stay productive. 💪**
-
-Made with ❤️ by developers who also doomscroll too much
 
 </div>

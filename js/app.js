@@ -260,27 +260,135 @@ class App {
             this.fpsDisplay.textContent = `${result.debug.fps} FPS`;
         }
 
-        // Draw face box on canvas
+        // Draw overlays on canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         if (result.faceBox) {
-            this.drawFaceBox(result.faceBox, result.state);
+            this.drawFaceBox(result.faceBox, result.state, result);
+        }
+        if (result.phoneBox) {
+            this.drawPhoneBox(result.phoneBox);
         }
 
         // Update UI based on state
         this.updateUI(result);
     }
 
-    drawFaceBox(box, state) {
+    drawFaceBox(box, state, result = {}) {
         const colors = {
-            'normal': '#22c55e',      // Green
-            'doomscrolling': '#ef4444', // Red
-            'monitoring': '#eab308',   // Yellow
+            'normal': '#10b981',      // Green
+            'doomscrolling': '#f43f5e', // Red
+            'monitoring': '#f59e0b',   // Yellow
             'no-face': '#6b7280'       // Gray
         };
 
-        this.ctx.strokeStyle = colors[state] || colors['monitoring'];
+        const color = colors[state] || colors['monitoring'];
+
+        // Main face box
+        this.ctx.strokeStyle = color;
         this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([]);
         this.ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        // Corner accents
+        const cornerSize = 15;
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeStyle = color;
+
+        // Top-left
+        this.ctx.beginPath();
+        this.ctx.moveTo(box.x, box.y + cornerSize);
+        this.ctx.lineTo(box.x, box.y);
+        this.ctx.lineTo(box.x + cornerSize, box.y);
+        this.ctx.stroke();
+
+        // Top-right
+        this.ctx.beginPath();
+        this.ctx.moveTo(box.x + box.width - cornerSize, box.y);
+        this.ctx.lineTo(box.x + box.width, box.y);
+        this.ctx.lineTo(box.x + box.width, box.y + cornerSize);
+        this.ctx.stroke();
+
+        // Bottom-left
+        this.ctx.beginPath();
+        this.ctx.moveTo(box.x, box.y + box.height - cornerSize);
+        this.ctx.lineTo(box.x, box.y + box.height);
+        this.ctx.lineTo(box.x + cornerSize, box.y + box.height);
+        this.ctx.stroke();
+
+        // Bottom-right
+        this.ctx.beginPath();
+        this.ctx.moveTo(box.x + box.width - cornerSize, box.y + box.height);
+        this.ctx.lineTo(box.x + box.width, box.y + box.height);
+        this.ctx.lineTo(box.x + box.width, box.y + box.height - cornerSize);
+        this.ctx.stroke();
+
+        // Eye tracking boxes (estimated positions)
+        const eyeWidth = box.width * 0.25;
+        const eyeHeight = box.height * 0.12;
+        const eyeY = box.y + box.height * 0.30;
+
+        this.ctx.strokeStyle = '#a855f7'; // Purple for eyes
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([4, 4]);
+
+        // Left eye
+        this.ctx.strokeRect(box.x + box.width * 0.15, eyeY, eyeWidth, eyeHeight);
+        // Right eye
+        this.ctx.strokeRect(box.x + box.width * 0.60, eyeY, eyeWidth, eyeHeight);
+
+        // Nose position indicator
+        const noseX = box.x + box.width * 0.5;
+        const noseY = box.y + box.height * 0.55;
+
+        this.ctx.setLineDash([]);
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.arc(noseX, noseY, 6, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Debug info overlay - flip text so it's readable
+        if (result.debug) {
+            // Save context and flip horizontally to undo mirror effect for text
+            this.ctx.save();
+            this.ctx.scale(-1, 1);
+
+            // Calculate flipped X position
+            const textX = -(box.x + 180);
+            const textY = box.y + box.height + 10;
+
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(textX, textY, 180, 70);
+
+            this.ctx.fillStyle = '#fff';
+            this.ctx.font = '12px Inter, sans-serif';
+            this.ctx.fillText(`Head: ${result.debug.noseOffset}`, textX + 8, textY + 16);
+            this.ctx.fillText(`Eyes: ${result.debug.eyeGaze}`, textX + 8, textY + 30);
+            this.ctx.fillText(`Away: ${result.debug.lookAway || '0'}`, textX + 8, textY + 44);
+            this.ctx.fillText(`Score: ${result.debug.score} ${result.debug.phone || ''}`, textX + 8, textY + 58);
+
+            this.ctx.restore();
+        }
+    }
+
+    drawPhoneBox(phoneBox) {
+        // Mirror x coordinate to match flipped video
+        const mirroredX = this.canvas.width - phoneBox.x - phoneBox.width;
+
+        // Draw phone detection box in magenta with alert style
+        this.ctx.strokeStyle = '#ec4899';
+        this.ctx.lineWidth = 4;
+        this.ctx.setLineDash([10, 5]);
+        this.ctx.strokeRect(mirroredX, phoneBox.y, phoneBox.width, phoneBox.height);
+
+        // Label background
+        this.ctx.setLineDash([]);
+        this.ctx.fillStyle = '#ec4899';
+        this.ctx.fillRect(mirroredX, phoneBox.y - 25, 100, 22);
+
+        // Phone label
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = 'bold 14px Inter, sans-serif';
+        this.ctx.fillText('📱 PHONE', mirroredX + 8, phoneBox.y - 8);
     }
 
     updateUI(result) {
