@@ -38,29 +38,54 @@ export class DoomscrollDetector {
         try {
             console.log('Loading AI models...');
 
-            this.faceMesh = new FaceMesh({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-            });
+            // Check if mobile device
+            this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-            this.faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
+            if (this.isMobile) {
+                console.log('Mobile device detected - using simplified detection');
+            }
 
-            this.latestResults = null;
-            this.faceMesh.onResults((results) => {
-                this.latestResults = results;
-            });
+            // Try to load FaceMesh with error handling
+            try {
+                this.faceMesh = new FaceMesh({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                });
 
-            console.log('FaceMesh loaded!');
+                this.faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: !this.isMobile, // Disable refineLandmarks on mobile for stability
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
 
-            console.log('Loading phone detector...');
-            this.phoneDetector = await cocoSsd.load();
-            console.log('Phone detector loaded!');
+                this.latestResults = null;
+                this.faceMesh.onResults((results) => {
+                    this.latestResults = results;
+                });
 
-            this.isInitialized = true;
+                console.log('FaceMesh loaded!');
+                this.faceMeshReady = true;
+            } catch (faceError) {
+                console.warn('FaceMesh failed to load:', faceError);
+                this.faceMeshReady = false;
+            }
+
+            // Load COCO-SSD for phone detection (works better on mobile)
+            try {
+                console.log('Loading phone detector...');
+                this.phoneDetector = await cocoSsd.load();
+                console.log('Phone detector loaded!');
+            } catch (phoneError) {
+                console.warn('Phone detector failed to load:', phoneError);
+                this.phoneDetector = null;
+            }
+
+            this.isInitialized = this.faceMeshReady || this.phoneDetector;
+
+            if (!this.isInitialized) {
+                throw new Error('No detection models could be loaded');
+            }
+
             return true;
         } catch (error) {
             console.error('Failed to load models:', error);
@@ -180,25 +205,35 @@ export class DoomscrollDetector {
     }
 
     async detectDoomscroll(video) {
-        if (!this.isInitialized || !this.faceMesh) {
+        if (!this.isInitialized) {
             return { isLookingDown: false, state: 'error', message: 'Model not initialized' };
         }
 
         try {
-            await this.faceMesh.send({ image: video });
-
             const now = performance.now();
             this.fps = Math.round(1000 / (now - this.lastDetectionTime));
             this.lastDetectionTime = now;
 
-            // Phone detection
+            // Phone detection (works on mobile)
             if (now - this.lastPhoneCheck > this.phoneCheckInterval) {
                 this.phoneResult = await this.detectPhone(video);
                 this.phoneDetected = this.phoneResult?.detected || false;
                 this.lastPhoneCheck = now;
             }
 
-            const results = this.latestResults;
+            // Try FaceMesh if available
+            let faceResults = null;
+            if (this.faceMeshReady && this.faceMesh) {
+                try {
+                    await this.faceMesh.send({ image: video });
+                    faceResults = this.latestResults;
+                } catch (faceError) {
+                    console.warn('FaceMesh detection error:', faceError.message);
+                    // Continue with phone-only detection
+                }
+            }
+
+            const results = faceResults;
 
             if (!results || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                 if (this.phoneDetected) {
