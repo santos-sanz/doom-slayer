@@ -4,7 +4,7 @@
 
 ### Stop Doomscrolling. Start Living.
 
-[![Live Demo](https://img.shields.io/badge/Demo-Live-a855f7?style=for-the-badge&logo=vercel&logoColor=white)](https://doom-slayer.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Demo-Live-a855f7?style=for-the-badge&logo=vercel&logoColor=white)](https://doomscroll-slayer.vercel.app)
 [![No Backend](https://img.shields.io/badge/Backend-None-10b981?style=for-the-badge)](.)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25_Local-6366f1?style=for-the-badge)](.)
 
