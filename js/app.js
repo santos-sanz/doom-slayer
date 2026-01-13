@@ -371,25 +371,24 @@ class App {
     }
 
     drawPhoneBox(phoneBox) {
-        // COCO-SSD detects on un-mirrored video, but canvas CSS is mirrored
-        // So we need to mirror the x coordinate
-        const mirroredX = this.video.videoWidth - phoneBox.x - phoneBox.width;
+        // Canvas CSS already has transform: scaleX(-1) which mirrors display
+        // So we use the original detection coordinates directly
 
         // Draw phone detection box in magenta with alert style
         this.ctx.strokeStyle = '#ec4899';
         this.ctx.lineWidth = 4;
         this.ctx.setLineDash([10, 5]);
-        this.ctx.strokeRect(mirroredX, phoneBox.y, phoneBox.width, phoneBox.height);
+        this.ctx.strokeRect(phoneBox.x, phoneBox.y, phoneBox.width, phoneBox.height);
 
         // Label background
         this.ctx.setLineDash([]);
         this.ctx.fillStyle = '#ec4899';
-        this.ctx.fillRect(mirroredX, phoneBox.y - 25, 100, 22);
+        this.ctx.fillRect(phoneBox.x, phoneBox.y - 25, 100, 22);
 
         // Phone label
         this.ctx.fillStyle = '#fff';
         this.ctx.font = 'bold 14px Inter, sans-serif';
-        this.ctx.fillText('📱 PHONE', mirroredX + 8, phoneBox.y - 8);
+        this.ctx.fillText('📱 PHONE', phoneBox.x + 8, phoneBox.y - 8);
     }
 
     updateUI(result) {
