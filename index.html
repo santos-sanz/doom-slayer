@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Doom Slayer - A web-based doomscrolling blocker that uses AI to detect when you're looking at your phone and roasts you to get back to work!">
+  <meta name="theme-color" content="#0a0a0f">
+  
+  <title>Doom Slayer - Stop Doomscrolling, Start Living</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- MediaPipe FaceMesh -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Landing Section -->
+  <section id="landing" class="landing">
+    <div class="logo">💀</div>
+    <h1>Doom Slayer</h1>
+    <p class="tagline">
+      Stop doomscrolling. Start living. AI-powered focus assistant that catches you looking at your phone and roasts you back to productivity.
+    </p>
+    
+    <div class="features">
+      <div class="feature-card">
+        <div class="icon">🎯</div>
+        <h3>AI Face Tracking</h3>
+        <p>Real-time detection using TensorFlow.js - no data leaves your device.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔥</div>
+        <h3>Motivational Roasts</h3>
+        <p>Harsh but effective messages to snap you back to reality.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎵</div>
+        <h3>Rickroll Punishment</h3>
+        <p>Got caught? Enjoy some Never Gonna Give You Up until you're back on track.</p>
+      </div>
+    </div>
+    
+    <button id="startBtn" class="btn btn-primary">
+      <span>🚀</span> Start Monitoring
+    </button>
+    
+    <div class="privacy-badge">
+      <span>🔒</span> 100% Private • No Backend • Client-side Only
+    </div>
+  </section>
+
+  <!-- Monitor Section -->
+  <section id="monitor" class="monitor hidden">
+    <div class="container">
+      <header class="monitor-header">
+        <div class="monitor-title">
+          <span style="font-size: 1.5rem;">💀</span>
+          <h2>Doom Slayer Active</h2>
+        </div>
+        <div class="monitor-controls">
+          <span id="fpsDisplay">-- FPS</span>
+          <button id="pipBtn" class="btn btn-secondary btn-icon" title="Enable Picture-in-Picture (keeps working in background)">📌</button>
+          <button id="settingsBtn" class="btn btn-secondary btn-icon" title="Settings">⚙️</button>
+          <button id="stopBtn" class="btn btn-danger">Stop</button>
+        </div>
+      </header>
+      
+      <div class="video-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        
+        <div id="statusOverlay" class="status-overlay monitoring">
+          <div class="status-content">
+            <span id="statusIcon">👀</span>
+            <div class="status-text">
+              <h3 id="statusMessage">Initializing...</h3>
+              <p id="roastText"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Statistics Panel -->
+      <div class="stats-panel">
+        <div class="stat-card focused">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="focusedTime">0:00</span>
+            <span class="stat-label">Focused</span>
+          </div>
+        </div>
+        <div class="stat-card distracted">
+          <div class="stat-icon">📱</div>
+          <div class="stat-info">
+            <span class="stat-value" id="distractedTime">0:00</span>
+            <span class="stat-label">Distracted</span>
+          </div>
+        </div>
+        <div class="stat-card alerts">
+          <div class="stat-icon">🚨</div>
+          <div class="stat-info">
+            <span class="stat-value" id="alertCount">0</span>
+            <span class="stat-label">Alerts</span>
+          </div>
+        </div>
+        <button id="resetStatsBtn" class="btn btn-secondary btn-sm" title="Reset Statistics">🔄 Reset</button>
+      </div>
+    </div>
+    
+    <!-- Rickroll Container -->
+    <div id="rickrollContainer" class="rickroll-container hidden">
+      <iframe 
+        id="rickrollIframe"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen>
+      </iframe>
+    </div>
+  </section>
+
+  <!-- Settings Panel -->
+  <div id="settingsPanel" class="settings-panel hidden">
+    <div class="settings-header">
+      <h3>⚙️ Settings</h3>
+      <button id="closeSettings" class="btn btn-secondary btn-icon" style="width: 36px; height: 36px;">✕</button>
+    </div>
+    
+    <div class="setting-group">
+      <label>
+        Detection Sensitivity
+        <span id="sensitivityValue" class="setting-value">55%</span>
+      </label>
+      <input type="range" id="sensitivity" min="40" max="70" value="55">
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+        Lower = more sensitive (triggers easier)<br>
+        Higher = less sensitive (more tolerance)
+      </p>
+    </div>
+    
+    <div class="setting-group">
+      <label>Punishment Video (YouTube URL)</label>
+      <input type="text" id="videoUrl" class="input-text" 
+             placeholder="https://www.youtube.com/watch?v=..." 
+             value="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+        Video will be buffered for instant playback
+      </p>
+    </div>
+  </div>
+
+  <!-- App Script (ES Module) -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
