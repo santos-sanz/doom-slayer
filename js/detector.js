@@ -283,22 +283,23 @@ export class DoomscrollDetector {
             let detectionScore = 0;
             let reason = '';
 
-            // 1. LOOKING DOWN (eyes + head) - LOWERED thresholds
+            // 1. LOOKING DOWN (eyes + head) - Adjusted thresholds to avoid false positives
+            // when looking at the bottom of the laptop screen
             const gazeDownOffset = gaze.vertical - this.baseline.gazeVertical;
             const headDownOffset = head.noseY - this.baseline.noseY;
 
-            if (gazeDownOffset > 0.06 || headDownOffset > 0.04) {
+            // Higher thresholds: only trigger when actually looking away from screen
+            if (gazeDownOffset > 0.12 || headDownOffset > 0.08) {
                 detectionScore += 4;
                 reason = 'Looking down';
-            } else if (gazeDownOffset > 0.04 || headDownOffset > 0.025) {
+            } else if (gazeDownOffset > 0.09 || headDownOffset > 0.06) {
                 detectionScore += 3;
                 reason = 'Looking down';
-            } else if (gazeDownOffset > 0.02 || headDownOffset > 0.015) {
+            } else if (gazeDownOffset > 0.06 || headDownOffset > 0.04) {
                 detectionScore += 2;
                 reason = 'Looking down';
-            } else if (gazeDownOffset > 0.01 || headDownOffset > 0.01) {
-                detectionScore += 1;
             }
+            // Removed the lowest threshold that was causing false positives
 
             // 2. LOOKING AWAY (left/right) - LOWERED thresholds
             const gazeHorizontalOffset = Math.abs(gaze.horizontal - this.baseline.gazeHorizontal);
