@@ -818,6 +818,63 @@ body::after {
   line-height: 1.5;
 }
 
+/* === Mobile Warning === */
+.mobile-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  min-height: 80vh;
+}
+
+.mobile-warning .warning-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.mobile-warning h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff, var(--accent-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.mobile-warning .warning-text {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  max-width: 320px;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.mobile-warning .warning-subtext {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  max-width: 280px;
+  margin-bottom: 2rem;
+}
+
+.mobile-warning .warning-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.mobile-warning .feature-item {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
   .landing h1 {

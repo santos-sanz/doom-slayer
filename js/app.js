@@ -71,6 +71,14 @@ class App {
     }
 
     init() {
+        // Check for mobile device and show warning
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            this.showMobileWarning();
+            return; // Don't initialize the rest of the app
+        }
+
         // Event listeners
         this.startBtn.addEventListener('click', () => this.start());
         this.stopBtn.addEventListener('click', () => this.stop());
@@ -528,6 +536,30 @@ class App {
             console.error('PiP error:', error);
             alert('Could not toggle Picture-in-Picture: ' + error.message);
         }
+    }
+
+    showMobileWarning() {
+        // Hide the landing section and show a mobile warning
+        this.landingSection.innerHTML = `
+            <div class="mobile-warning">
+                <div class="warning-icon">💻</div>
+                <h1>Desktop Only</h1>
+                <p class="warning-text">
+                    Doom Slayer uses advanced AI face tracking that requires a desktop computer with a webcam.
+                </p>
+                <p class="warning-subtext">
+                    Please visit this site from a desktop or laptop computer to use the app.
+                </p>
+                <div class="warning-features">
+                    <div class="feature-item">🎯 Real-time face detection</div>
+                    <div class="feature-item">👁️ Eye gaze tracking</div>
+                    <div class="feature-item">📱 Phone detection</div>
+                </div>
+                <a href="https://github.com/santos-sanz/doom-slayer" class="btn btn-primary" target="_blank">
+                    View on GitHub
+                </a>
+            </div>
+        `;
     }
 }
 
