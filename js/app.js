@@ -168,12 +168,28 @@ class App {
                 preloader.id = 'videoPreloader';
                 preloader.style.display = 'none';
                 preloader.title = 'Video preloader';
-                preloader.setAttribute('sandbox', 'allow-scripts allow-presentation');
                 preloader.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
                 document.body.appendChild(preloader);
             }
-            preloader.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=1`;
+            preloader.src = this.getEmbedUrl(videoId, { autoplay: false, mute: true });
         }
+    }
+
+    getEmbedUrl(videoId, { autoplay = false, mute = false } = {}) {
+        const params = new URLSearchParams({
+            autoplay: autoplay ? '1' : '0',
+            loop: '1',
+            playlist: videoId,
+            playsinline: '1',
+            rel: '0',
+            modestbranding: '1'
+        });
+
+        if (mute) {
+            params.set('mute', '1');
+        }
+
+        return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     }
 
     extractVideoId(url) {
@@ -195,7 +211,7 @@ class App {
 
         try {
             // Show loading state
-            this.startBtn.textContent = 'Loading AI Model...';
+            this.startBtn.textContent = 'Loading AI Model…';
             this.startBtn.disabled = true;
 
             // Initialize detector
@@ -209,7 +225,7 @@ class App {
             }
 
             // Request webcam access
-            this.startBtn.textContent = 'Requesting Camera...';
+            this.startBtn.textContent = 'Requesting Camera…';
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: 'user',
@@ -395,7 +411,7 @@ class App {
         const eyeHeight = box.height * 0.12;
         const eyeY = box.y + box.height * 0.30;
 
-        this.ctx.strokeStyle = '#a855f7'; // Purple for eyes
+        this.ctx.strokeStyle = '#ff8b5c'; // Accent for eyes
         this.ctx.lineWidth = 2;
         this.ctx.setLineDash([4, 4]);
 
@@ -443,14 +459,14 @@ class App {
         // So we use the original detection coordinates directly
 
         // Draw phone detection box in magenta with alert style
-        this.ctx.strokeStyle = '#ec4899';
+        this.ctx.strokeStyle = '#f97316';
         this.ctx.lineWidth = 4;
         this.ctx.setLineDash([10, 5]);
         this.ctx.strokeRect(phoneBox.x, phoneBox.y, phoneBox.width, phoneBox.height);
 
         // Label background
         this.ctx.setLineDash([]);
-        this.ctx.fillStyle = '#ec4899';
+        this.ctx.fillStyle = '#f97316';
         this.ctx.fillRect(phoneBox.x, phoneBox.y - 25, 100, 22);
 
         // Phone label
@@ -567,7 +583,7 @@ class App {
         // Extract video ID from custom URL
         const videoId = this.extractVideoId(this.customVideoUrl);
         if (videoId) {
-            this.rickrollIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}`;
+            this.rickrollIframe.src = this.getEmbedUrl(videoId, { autoplay: true });
         }
     }
 

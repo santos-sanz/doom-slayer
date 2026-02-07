@@ -12,7 +12,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
   
   <!-- MediaPipe FaceMesh -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -28,6 +28,7 @@
 <body>
   <!-- Landing Section -->
   <section id="landing" class="landing">
+    <p class="kicker">AI Focus Sentinel</p>
     <div class="logo">💀</div>
     <h1>Doom Slayer</h1>
     <p class="tagline">
@@ -55,6 +56,21 @@
     <button id="startBtn" class="btn btn-primary" type="button" aria-label="Start monitoring your posture and focus">
       <span>🚀</span> Start Monitoring
     </button>
+
+    <div class="landing-stats" aria-label="Live system highlights">
+      <div class="landing-stat">
+        <span class="value">468</span>
+        <span class="label">Face Points</span>
+      </div>
+      <div class="landing-stat">
+        <span class="value">10 FPS</span>
+        <span class="label">Realtime Scan</span>
+      </div>
+      <div class="landing-stat">
+        <span class="value">100%</span>
+        <span class="label">Local Privacy</span>
+      </div>
+    </div>
     
     <div class="privacy-badge">
       <span>🔒</span> 100% Private • No Backend • Client-side Only
@@ -85,7 +101,7 @@
           <div class="status-content">
             <span id="statusIcon">👀</span>
             <div class="status-text">
-              <h3 id="statusMessage">Initializing...</h3>
+              <h3 id="statusMessage">Initializing…</h3>
               <p id="roastText"></p>
             </div>
           </div>
@@ -124,8 +140,6 @@
       <iframe 
         id="rickrollIframe"
         title="Punishment video player"
-        credentialless
-        sandbox="allow-scripts allow-presentation"
         referrerpolicy="strict-origin-when-cross-origin"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen>

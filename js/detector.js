@@ -278,7 +278,7 @@ export class DoomscrollDetector {
                 return {
                     isLookingDown: false,
                     state: 'monitoring',
-                    message: `Calibrating... ${this.calibrationFrames}/30`,
+                    message: `Calibrating… ${this.calibrationFrames}/30`,
                     fps: this.fps
                 };
             }
@@ -390,7 +390,7 @@ export class DoomscrollDetector {
             this.currentState = 'normal';
             return { isLookingDown: false, state: 'normal', message: 'Good posture!' };
         } else {
-            return { isLookingDown: false, state: 'monitoring', message: 'Monitoring...' };
+            return { isLookingDown: false, state: 'monitoring', message: 'Monitoring…' };
         }
     }
 

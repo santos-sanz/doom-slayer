@@ -6,22 +6,22 @@
 /* === CSS Variables === */
 :root {
   /* Colors - Refined palette */
-  --bg-primary: #050508;
-  --bg-secondary: #0d0d14;
-  --bg-tertiary: #15151f;
-  --bg-glass: rgba(20, 20, 30, 0.85);
+  --bg-primary: #08070b;
+  --bg-secondary: #111017;
+  --bg-tertiary: #1a1722;
+  --bg-glass: rgba(24, 18, 22, 0.86);
   --bg-glass-light: rgba(255, 255, 255, 0.03);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f8f5ef;
+  --text-secondary: #c3c6d4;
+  --text-muted: #898ea3;
 
-  /* Neon accent colors */
-  --accent-primary: #a855f7;
-  --accent-secondary: #6366f1;
-  --accent-tertiary: #ec4899;
-  --accent-glow: rgba(168, 85, 247, 0.5);
-  --accent-glow-strong: rgba(168, 85, 247, 0.8);
+  /* Hot accent colors */
+  --accent-primary: #ff6a3d;
+  --accent-secondary: #ef4444;
+  --accent-tertiary: #f59e0b;
+  --accent-glow: rgba(255, 106, 61, 0.45);
+  --accent-glow-strong: rgba(255, 106, 61, 0.75);
 
   --success: #10b981;
   --success-light: #34d399;
@@ -36,11 +36,12 @@
   --warning-glow: rgba(245, 158, 11, 0.4);
 
   /* Typography */
-  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-main: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk', 'Manrope', sans-serif;
 
   /* Borders */
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(168, 85, 247, 0.3);
+  --border-glow: rgba(255, 106, 61, 0.28);
   --border-radius: 20px;
   --border-radius-md: 14px;
   --border-radius-sm: 10px;
@@ -69,6 +70,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
@@ -78,6 +80,8 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Animated mesh gradient background */
@@ -89,9 +93,9 @@ body::before {
   right: 0;
   bottom: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 30%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 70%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 60% at 50% 90%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 50% at 20% 30%, rgba(255, 106, 61, 0.18) 0%, transparent 52%),
+    radial-gradient(ellipse 60% 45% at 80% 70%, rgba(239, 68, 68, 0.16) 0%, transparent 52%),
+    radial-gradient(ellipse 40% 60% at 50% 92%, rgba(245, 158, 11, 0.14) 0%, transparent 52%);
   pointer-events: none;
   z-index: -1;
   animation: gradientShift 15s ease-in-out infinite alternate;
@@ -147,7 +151,7 @@ body::after {
   border: none;
   border-radius: var(--border-radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
   text-decoration: none;
   position: relative;
   overflow: hidden;
@@ -204,9 +208,9 @@ input[type="range"]:focus-visible {
 }
 
 .btn-secondary:hover {
-  background: rgba(168, 85, 247, 0.1);
+  background: rgba(255, 106, 61, 0.14);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 0 24px rgba(255, 106, 61, 0.24);
 }
 
 .btn-danger {
@@ -245,6 +249,19 @@ input[type="range"]:focus-visible {
   position: relative;
 }
 
+.kicker {
+  padding: 0.35rem 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(255, 106, 61, 0.22), rgba(239, 68, 68, 0.16));
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffd2c4;
+}
+
 .logo {
   font-size: 5rem;
   margin-bottom: 1.5rem;
@@ -269,6 +286,7 @@ input[type="range"]:focus-visible {
 }
 
 .landing h1 {
+  font-family: var(--font-display);
   font-size: clamp(2.5rem, 6vw, 4.5rem);
   font-weight: 800;
   margin-bottom: 0.75rem;
@@ -307,13 +325,44 @@ input[type="range"]:focus-visible {
   width: 100%;
 }
 
+.landing-stats {
+  width: min(840px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1.2rem;
+}
+
+.landing-stat {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--border-radius-md);
+  border: 1px solid rgba(255, 106, 61, 0.25);
+  background: linear-gradient(180deg, rgba(255, 106, 61, 0.14), rgba(8, 7, 11, 0.45));
+}
+
+.landing-stat .value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: #ffd8c4;
+}
+
+.landing-stat .label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .feature-card {
   background: var(--bg-glass);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   padding: 1.75rem;
   backdrop-filter: blur(20px);
-  transition: all var(--transition-normal);
+  transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
   position: relative;
   overflow: hidden;
 }
@@ -332,7 +381,7 @@ input[type="range"]:focus-visible {
 
 .feature-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(168, 85, 247, 0.3);
+  border-color: rgba(255, 106, 61, 0.34);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 40px var(--accent-glow);
 }
 
@@ -400,6 +449,7 @@ input[type="range"]:focus-visible {
 }
 
 .monitor-title h2 {
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   background: linear-gradient(135deg, var(--text-primary), var(--accent-primary));
@@ -472,7 +522,7 @@ input[type="range"]:focus-visible {
   right: 0;
   padding: 1.5rem;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 70%, transparent 100%);
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), opacity var(--transition-normal);
 }
 
 .status-content {
@@ -573,7 +623,7 @@ input[type="range"]:focus-visible {
   padding: 1rem 1.5rem;
   backdrop-filter: blur(20px);
   min-width: 150px;
-  transition: all var(--transition-normal);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
 }
 
 .stat-card:hover {
@@ -798,13 +848,13 @@ input[type="range"]:focus-visible {
   color: var(--text-primary);
   font-family: inherit;
   font-size: 0.9rem;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
 }
 
 .input-text:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 0 3px rgba(255, 106, 61, 0.2);
 }
 
 .input-text::placeholder {
@@ -895,6 +945,11 @@ input[type="range"]:focus-visible {
   .features {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .landing-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   .feature-card {
