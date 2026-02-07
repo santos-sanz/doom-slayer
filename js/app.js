@@ -29,6 +29,7 @@ class App {
 
         this.rickrollContainer = document.getElementById('rickrollContainer');
         this.rickrollIframe = document.getElementById('rickrollIframe');
+        this.videoUrlInput = document.getElementById('videoUrl');
 
         this.fpsDisplay = document.getElementById('fpsDisplay');
         this.sensitivitySlider = document.getElementById('sensitivity');
@@ -46,6 +47,7 @@ class App {
         this.isRunning = false;
         this.detectionInterval = null; // Changed from animationId
         this.isRickrolling = false;
+        this.isProcessingFrame = false;
 
         // Custom video URL
         this.customVideoUrl = localStorage.getItem('doomslayer_video_url') || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
@@ -54,6 +56,9 @@ class App {
         this.lastRoastTime = 0;
         this.roastCooldown = 3000; // 3 seconds between roasts
         this.currentRoast = '';
+        this.lastEncouragementTime = 0;
+        this.encouragementCooldown = 2500;
+        this.currentEncouragement = '';
 
         // Statistics tracking
         this.focusedSeconds = 0;
@@ -65,6 +70,8 @@ class App {
 
         // Bind methods
         this.runDetectionLoop = this.runDetectionLoop.bind(this);
+        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+        this.handleEscapeKey = this.handleEscapeKey.bind(this);
 
         // Initialize
         this.init();
@@ -86,6 +93,11 @@ class App {
         this.settingsBtn.addEventListener('click', () => this.toggleSettings());
         this.closeSettingsBtn.addEventListener('click', () => this.toggleSettings());
         this.resetStatsBtn.addEventListener('click', () => this.resetStats());
+        this.video.addEventListener('enterpictureinpicture', () => this.updatePiPButtonState(true));
+        this.video.addEventListener('leavepictureinpicture', () => this.updatePiPButtonState(false));
+        window.addEventListener('beforeunload', () => this.stop({ keepLandingVisible: false }));
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        document.addEventListener('keydown', this.handleEscapeKey);
 
         this.sensitivitySlider.addEventListener('input', (e) => {
             const value = e.target.value / 100;
@@ -114,19 +126,35 @@ class App {
         }
 
         // Load custom video URL
-        const videoUrlInput = document.getElementById('videoUrl');
-        if (videoUrlInput) {
-            videoUrlInput.value = this.customVideoUrl;
-            videoUrlInput.addEventListener('change', (e) => this.setCustomVideoUrl(e.target.value));
+        if (this.videoUrlInput) {
+            this.videoUrlInput.value = this.customVideoUrl;
+            this.videoUrlInput.addEventListener('change', (e) => this.setCustomVideoUrl(e.target.value));
         }
     }
 
     setCustomVideoUrl(url) {
-        if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
-            this.customVideoUrl = url;
-            localStorage.setItem('doomslayer_video_url', url);
-            this.preloadVideo();
+        const candidate = url?.trim();
+        const videoId = this.extractVideoId(candidate || '');
+
+        if (!videoId) {
+            if (this.videoUrlInput) {
+                this.videoUrlInput.setCustomValidity('Please enter a valid YouTube URL.');
+                this.videoUrlInput.reportValidity();
+            }
+            return;
         }
+
+        if (this.videoUrlInput) {
+            this.videoUrlInput.setCustomValidity('');
+        }
+
+        const normalizedUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        this.customVideoUrl = normalizedUrl;
+        localStorage.setItem('doomslayer_video_url', normalizedUrl);
+        if (this.videoUrlInput) {
+            this.videoUrlInput.value = normalizedUrl;
+        }
+        this.preloadVideo();
     }
 
     preloadVideo() {
@@ -139,6 +167,9 @@ class App {
                 preloader = document.createElement('iframe');
                 preloader.id = 'videoPreloader';
                 preloader.style.display = 'none';
+                preloader.title = 'Video preloader';
+                preloader.setAttribute('sandbox', 'allow-scripts allow-presentation');
+                preloader.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
                 document.body.appendChild(preloader);
             }
             preloader.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=1`;
@@ -158,6 +189,10 @@ class App {
     }
 
     async start() {
+        if (this.isRunning) {
+            return;
+        }
+
         try {
             // Show loading state
             this.startBtn.textContent = 'Loading AI Model...';
@@ -195,10 +230,13 @@ class App {
             // Show monitor section
             this.landingSection.classList.add('hidden');
             this.monitorSection.classList.remove('hidden');
+            this.settingsPanel.classList.add('hidden');
+            this.settingsBtn.setAttribute('aria-expanded', 'false');
 
             // Start detection loop with setInterval (works in background tabs)
             this.isRunning = true;
-            this.detectionInterval = setInterval(() => this.runDetectionLoop(), 100); // ~10 FPS
+            this.isProcessingFrame = false;
+            this.detectionInterval = setInterval(this.runDetectionLoop, 100); // ~10 FPS
 
             // Start statistics timer (1 second interval)
             this.statsInterval = setInterval(() => this.updateStatsTimer(), 1000);
@@ -208,6 +246,11 @@ class App {
             console.error('Failed to start:', error);
             this.startBtn.textContent = 'Start Monitoring';
             this.startBtn.disabled = false;
+            this.currentTrackingState = null;
+            if (this.stream) {
+                this.stream.getTracks().forEach(track => track.stop());
+                this.stream = null;
+            }
 
             if (error.name === 'NotAllowedError') {
                 alert('Camera permission denied. Please allow camera access to use Doom Slayer.');
@@ -217,8 +260,10 @@ class App {
         }
     }
 
-    stop() {
+    stop({ keepLandingVisible = true } = {}) {
         this.isRunning = false;
+        this.isProcessingFrame = false;
+        this.currentTrackingState = null;
 
         // Clear interval
         if (this.detectionInterval) {
@@ -237,6 +282,7 @@ class App {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
         }
+        this.video.srcObject = null;
 
         // Stop rickroll
         this.stopRickroll();
@@ -246,39 +292,53 @@ class App {
             this.detector.reset();
         }
 
-        // Show landing section
-        this.monitorSection.classList.add('hidden');
-        this.landingSection.classList.remove('hidden');
+        if (keepLandingVisible) {
+            // Show landing section
+            this.monitorSection.classList.add('hidden');
+            this.landingSection.classList.remove('hidden');
+        }
 
         // Reset button
         this.startBtn.textContent = 'Start Monitoring';
         this.startBtn.disabled = false;
+        this.settingsPanel.classList.add('hidden');
+        this.settingsBtn.setAttribute('aria-expanded', 'false');
+        this.updatePiPButtonState(false);
+        this.fpsDisplay.textContent = '-- FPS';
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         console.log('Doom Slayer stopped!');
     }
 
     async runDetectionLoop() {
-        if (!this.isRunning) return;
+        if (!this.isRunning || this.isProcessingFrame || !this.detector) return;
 
-        // Run detection
-        const result = await this.detector.detectDoomscroll(this.video);
+        this.isProcessingFrame = true;
+        try {
+            // Run detection
+            const result = await this.detector.detectDoomscroll(this.video);
 
-        // Update FPS display
-        if (result.debug) {
-            this.fpsDisplay.textContent = `${result.debug.fps} FPS`;
+            if (!this.isRunning) {
+                return;
+            }
+
+            const fps = result.debug?.fps ?? result.fps;
+            this.fpsDisplay.textContent = Number.isFinite(fps) ? `${fps} FPS` : '-- FPS';
+
+            // Draw overlays on canvas
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            if (result.faceBox) {
+                this.drawFaceBox(result.faceBox, result.state, result);
+            }
+            if (result.phoneBox) {
+                this.drawPhoneBox(result.phoneBox);
+            }
+
+            // Update UI based on state
+            this.updateUI(result);
+        } finally {
+            this.isProcessingFrame = false;
         }
-
-        // Draw overlays on canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        if (result.faceBox) {
-            this.drawFaceBox(result.faceBox, result.state, result);
-        }
-        if (result.phoneBox) {
-            this.drawPhoneBox(result.phoneBox);
-        }
-
-        // Update UI based on state
-        this.updateUI(result);
     }
 
     drawFaceBox(box, state, result = {}) {
@@ -433,6 +493,7 @@ class App {
         } else {
             // Clear roast text for other states
             this.roastText.textContent = '';
+            this.currentTrackingState = null;
             this.lastAlertState = false;
         }
     }
@@ -469,6 +530,7 @@ class App {
 
     handleDoomscrolling() {
         const now = Date.now();
+        this.currentEncouragement = '';
 
         // Show new roast if cooldown passed
         if (now - this.lastRoastTime > this.roastCooldown) {
@@ -483,8 +545,14 @@ class App {
     }
 
     handleNormalPosture() {
-        // Show encouragement
-        this.roastText.textContent = getRandomEncouragement();
+        const now = Date.now();
+
+        if (!this.currentEncouragement || now - this.lastEncouragementTime > this.encouragementCooldown) {
+            this.currentEncouragement = getRandomEncouragement();
+            this.lastEncouragementTime = now;
+        }
+
+        this.roastText.textContent = this.currentEncouragement;
 
         // Stop rickroll
         this.stopRickroll();
@@ -514,7 +582,9 @@ class App {
     }
 
     toggleSettings() {
+        const willOpen = this.settingsPanel.classList.contains('hidden');
         this.settingsPanel.classList.toggle('hidden');
+        this.settingsBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     }
 
     async togglePictureInPicture() {
@@ -522,13 +592,9 @@ class App {
             if (document.pictureInPictureElement) {
                 // Exit PiP mode
                 await document.exitPictureInPicture();
-                this.pipBtn.textContent = '📌';
-                this.pipBtn.title = 'Enable Picture-in-Picture (keeps working in background)';
             } else if (this.video && document.pictureInPictureEnabled) {
                 // Enter PiP mode
                 await this.video.requestPictureInPicture();
-                this.pipBtn.textContent = '🔙';
-                this.pipBtn.title = 'Exit Picture-in-Picture';
             } else {
                 alert('Picture-in-Picture is not supported in this browser');
             }
@@ -536,6 +602,31 @@ class App {
             console.error('PiP error:', error);
             alert('Could not toggle Picture-in-Picture: ' + error.message);
         }
+    }
+
+    updatePiPButtonState(isPiP) {
+        this.pipBtn.textContent = isPiP ? '🔙' : '📌';
+        this.pipBtn.title = isPiP
+            ? 'Exit Picture-in-Picture'
+            : 'Enable Picture-in-Picture (keeps working in background)';
+    }
+
+    handleVisibilityChange() {
+        if (!document.hidden || !this.isRunning) {
+            return;
+        }
+
+        if (document.pictureInPictureElement !== this.video) {
+            this.roastText.textContent = this.currentRoast || '';
+        }
+    }
+
+    handleEscapeKey(event) {
+        if (event.key !== 'Escape' || this.settingsPanel.classList.contains('hidden')) {
+            return;
+        }
+
+        this.toggleSettings();
     }
 
     showMobileWarning() {
@@ -555,7 +646,7 @@ class App {
                     <div class="feature-item">👁️ Eye gaze tracking</div>
                     <div class="feature-item">📱 Phone detection</div>
                 </div>
-                <a href="https://github.com/santos-sanz/doom-slayer" class="btn btn-primary" target="_blank">
+                <a href="https://github.com/santos-sanz/doom-slayer" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
                     View on GitHub
                 </a>
             </div>

@@ -21,8 +21,11 @@ export class DoomscrollDetector {
 
         // Phone detection
         this.phoneDetected = false;
+        this.phoneResult = null;
         this.lastPhoneCheck = 0;
         this.phoneCheckInterval = 500;
+        this.faceMeshReady = false;
+        this.latestResults = null;
 
         // Performance
         this.lastDetectionTime = 0;
@@ -100,7 +103,6 @@ export class DoomscrollDetector {
             // Lower threshold for phone detection
             const phone = predictions.find(p => p.class === 'cell phone' && p.score > 0.25);
             if (phone) {
-                console.log('📱 Phone detected!', phone.score.toFixed(2));
                 return {
                     detected: true,
                     box: {
@@ -211,7 +213,8 @@ export class DoomscrollDetector {
 
         try {
             const now = performance.now();
-            this.fps = Math.round(1000 / (now - this.lastDetectionTime));
+            const frameDelta = this.lastDetectionTime ? now - this.lastDetectionTime : 0;
+            this.fps = frameDelta > 0 ? Math.round(1000 / frameDelta) : 0;
             this.lastDetectionTime = now;
 
             // Phone detection (works on mobile)
@@ -241,6 +244,7 @@ export class DoomscrollDetector {
                         state: 'doomscrolling',
                         message: '📱 Phone detected!',
                         phoneDetected: true,
+                        phoneBox: this.phoneResult?.box || null,
                         fps: this.fps
                     });
                 }
@@ -399,6 +403,10 @@ export class DoomscrollDetector {
         this.normalCount = 0;
         this.currentState = 'monitoring';
         this.phoneDetected = false;
+        this.phoneResult = null;
+        this.lastPhoneCheck = 0;
+        this.lastDetectionTime = 0;
+        this.fps = 0;
         this.baseline = null;
         this.calibrationFrames = 0;
         this.calibrationData = [];

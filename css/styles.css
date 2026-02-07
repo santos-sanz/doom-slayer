@@ -189,6 +189,13 @@ body::after {
   filter: grayscale(0.3);
 }
 
+.btn:focus-visible,
+.input-text:focus-visible,
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 3px;
+}
+
 .btn-secondary {
   background: var(--bg-glass);
   color: var(--text-primary);
@@ -943,4 +950,15 @@ body::after {
 ::selection {
   background: var(--accent-primary);
   color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

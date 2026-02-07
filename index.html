@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Doom Slayer - A web-based doomscrolling blocker that uses AI to detect when you're looking at your phone and roasts you to get back to work!">
   <meta name="theme-color" content="#0a0a0f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%80%3C/text%3E%3C/svg%3E">
   
   <title>Doom Slayer - Stop Doomscrolling, Start Living</title>
   
@@ -51,7 +52,7 @@
       </div>
     </div>
     
-    <button id="startBtn" class="btn btn-primary">
+    <button id="startBtn" class="btn btn-primary" type="button" aria-label="Start monitoring your posture and focus">
       <span>🚀</span> Start Monitoring
     </button>
     
@@ -69,10 +70,10 @@
           <h2>Doom Slayer Active</h2>
         </div>
         <div class="monitor-controls">
-          <span id="fpsDisplay">-- FPS</span>
-          <button id="pipBtn" class="btn btn-secondary btn-icon" title="Enable Picture-in-Picture (keeps working in background)">📌</button>
-          <button id="settingsBtn" class="btn btn-secondary btn-icon" title="Settings">⚙️</button>
-          <button id="stopBtn" class="btn btn-danger">Stop</button>
+          <span id="fpsDisplay" aria-live="polite">-- FPS</span>
+          <button id="pipBtn" class="btn btn-secondary btn-icon" type="button" aria-label="Toggle Picture-in-Picture mode" title="Enable Picture-in-Picture (keeps working in background)">📌</button>
+          <button id="settingsBtn" class="btn btn-secondary btn-icon" type="button" aria-label="Open settings panel" title="Settings" aria-expanded="false" aria-controls="settingsPanel">⚙️</button>
+          <button id="stopBtn" class="btn btn-danger" type="button">Stop</button>
         </div>
       </header>
       
@@ -80,7 +81,7 @@
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="overlay"></canvas>
         
-        <div id="statusOverlay" class="status-overlay monitoring">
+        <div id="statusOverlay" class="status-overlay monitoring" role="status" aria-live="polite" aria-atomic="true">
           <div class="status-content">
             <span id="statusIcon">👀</span>
             <div class="status-text">
@@ -114,7 +115,7 @@
             <span class="stat-label">Alerts</span>
           </div>
         </div>
-        <button id="resetStatsBtn" class="btn btn-secondary btn-sm" title="Reset Statistics">🔄 Reset</button>
+        <button id="resetStatsBtn" class="btn btn-secondary btn-sm" type="button" title="Reset Statistics">🔄 Reset</button>
       </div>
     </div>
     
@@ -122,7 +123,10 @@
     <div id="rickrollContainer" class="rickroll-container hidden">
       <iframe 
         id="rickrollIframe"
+        title="Punishment video player"
         credentialless
+        sandbox="allow-scripts allow-presentation"
+        referrerpolicy="strict-origin-when-cross-origin"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen>
       </iframe>
@@ -130,14 +134,14 @@
   </section>
 
   <!-- Settings Panel -->
-  <div id="settingsPanel" class="settings-panel hidden">
+  <div id="settingsPanel" class="settings-panel hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="settings-header">
-      <h3>⚙️ Settings</h3>
-      <button id="closeSettings" class="btn btn-secondary btn-icon" style="width: 36px; height: 36px;">✕</button>
+      <h3 id="settingsTitle">⚙️ Settings</h3>
+      <button id="closeSettings" class="btn btn-secondary btn-icon" type="button" aria-label="Close settings panel" style="width: 36px; height: 36px;">✕</button>
     </div>
     
     <div class="setting-group">
-      <label>
+      <label for="sensitivity">
         Detection Sensitivity
         <span id="sensitivityValue" class="setting-value">55%</span>
       </label>
@@ -149,7 +153,7 @@
     </div>
     
     <div class="setting-group">
-      <label>Punishment Video (YouTube URL)</label>
+      <label for="videoUrl">Punishment Video (YouTube URL)</label>
       <input type="text" id="videoUrl" class="input-text" 
              placeholder="https://www.youtube.com/watch?v=..." 
              value="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
