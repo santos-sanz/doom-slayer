@@ -29,6 +29,7 @@ class App {
 
         this.rickrollContainer = document.getElementById('rickrollContainer');
         this.rickrollIframe = document.getElementById('rickrollIframe');
+        this.rickrollFallback = document.getElementById('rickrollFallback');
         this.videoUrlInput = document.getElementById('videoUrl');
 
         this.fpsDisplay = document.getElementById('fpsDisplay');
@@ -48,6 +49,11 @@ class App {
         this.detectionInterval = null; // Changed from animationId
         this.isRickrolling = false;
         this.isProcessingFrame = false;
+        this.rickrollPlayerReady = false;
+        this.rickrollLoadTimeout = null;
+        this.activeRickrollVideoId = null;
+
+        this.youtubeEmbedOrigin = 'https://www.youtube-nocookie.com';
 
         // Custom video URL
         this.customVideoUrl = localStorage.getItem('doomslayer_video_url') || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
@@ -72,6 +78,8 @@ class App {
         this.runDetectionLoop = this.runDetectionLoop.bind(this);
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         this.handleEscapeKey = this.handleEscapeKey.bind(this);
+        this.handleRickrollLoad = this.handleRickrollLoad.bind(this);
+        this.handleRickrollError = this.handleRickrollError.bind(this);
 
         // Initialize
         this.init();
@@ -98,6 +106,8 @@ class App {
         window.addEventListener('beforeunload', () => this.stop({ keepLandingVisible: false }));
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
         document.addEventListener('keydown', this.handleEscapeKey);
+        this.rickrollIframe.addEventListener('load', this.handleRickrollLoad);
+        this.rickrollIframe.addEventListener('error', this.handleRickrollError);
 
         this.sensitivitySlider.addEventListener('input', (e) => {
             const value = e.target.value / 100;
@@ -110,9 +120,6 @@ class App {
 
         // Load saved settings
         this.loadSettings();
-
-        // Preload video (buffer)
-        this.preloadVideo();
 
         console.log('Doom Slayer initialized!');
     }
@@ -154,24 +161,13 @@ class App {
         if (this.videoUrlInput) {
             this.videoUrlInput.value = normalizedUrl;
         }
-        this.preloadVideo();
-    }
 
-    preloadVideo() {
-        // Extract video ID and preload iframe
-        const videoId = this.extractVideoId(this.customVideoUrl);
-        if (videoId) {
-            // Create hidden preload iframe
-            let preloader = document.getElementById('videoPreloader');
-            if (!preloader) {
-                preloader = document.createElement('iframe');
-                preloader.id = 'videoPreloader';
-                preloader.style.display = 'none';
-                preloader.title = 'Video preloader';
-                preloader.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-                document.body.appendChild(preloader);
-            }
-            preloader.src = this.getEmbedUrl(videoId, { autoplay: false, mute: true });
+        if (this.rickrollFallback) {
+            this.rickrollFallback.href = normalizedUrl;
+        }
+
+        if (this.activeRickrollVideoId && this.activeRickrollVideoId !== videoId) {
+            this.unloadRickrollPlayer();
         }
     }
 
@@ -182,14 +178,16 @@ class App {
             playlist: videoId,
             playsinline: '1',
             rel: '0',
-            modestbranding: '1'
+            modestbranding: '1',
+            enablejsapi: '1',
+            origin: window.location.origin
         });
 
         if (mute) {
             params.set('mute', '1');
         }
 
-        return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+        return `${this.youtubeEmbedOrigin}/embed/${videoId}?${params.toString()}`;
     }
 
     extractVideoId(url) {
@@ -302,6 +300,7 @@ class App {
 
         // Stop rickroll
         this.stopRickroll();
+        this.unloadRickrollPlayer();
 
         // Reset detector
         if (this.detector) {
@@ -577,14 +576,28 @@ class App {
     triggerRickroll() {
         if (this.isRickrolling) return;
 
+        // Extract video ID from custom URL
+        const videoId = this.extractVideoId(this.customVideoUrl);
+        if (!videoId) {
+            return;
+        }
+
         this.isRickrolling = true;
         this.rickrollContainer.classList.remove('hidden');
 
-        // Extract video ID from custom URL
-        const videoId = this.extractVideoId(this.customVideoUrl);
-        if (videoId) {
-            this.rickrollIframe.src = this.getEmbedUrl(videoId, { autoplay: true });
+        const targetSrc = this.getEmbedUrl(videoId, { autoplay: true });
+        const isSameVideoLoaded = this.activeRickrollVideoId === videoId && this.rickrollIframe.src.includes(videoId);
+
+        if (!isSameVideoLoaded) {
+            this.rickrollPlayerReady = false;
+            this.activeRickrollVideoId = videoId;
+            this.rickrollIframe.src = targetSrc;
+            this.scheduleRickrollFallback();
+            return;
         }
+
+        this.scheduleRickrollFallback();
+        this.sendRickrollCommand('playVideo');
     }
 
     stopRickroll() {
@@ -592,9 +605,69 @@ class App {
 
         this.isRickrolling = false;
         this.rickrollContainer.classList.add('hidden');
+        this.sendRickrollCommand('pauseVideo');
+        this.clearRickrollFallbackTimer();
+    }
 
-        // Clear iframe src to stop video
+    unloadRickrollPlayer() {
+        this.clearRickrollFallbackTimer();
+        this.rickrollPlayerReady = false;
+        this.activeRickrollVideoId = null;
         this.rickrollIframe.src = '';
+        if (this.rickrollFallback) {
+            this.rickrollFallback.classList.add('hidden');
+        }
+    }
+
+    sendRickrollCommand(command) {
+        if (!this.rickrollIframe?.contentWindow || !this.activeRickrollVideoId) {
+            return;
+        }
+
+        this.rickrollIframe.contentWindow.postMessage(
+            JSON.stringify({ event: 'command', func: command, args: [] }),
+            this.youtubeEmbedOrigin
+        );
+    }
+
+    scheduleRickrollFallback() {
+        this.clearRickrollFallbackTimer();
+        if (this.rickrollFallback) {
+            this.rickrollFallback.classList.add('hidden');
+            this.rickrollFallback.href = this.customVideoUrl;
+        }
+
+        this.rickrollLoadTimeout = window.setTimeout(() => {
+            if (this.rickrollPlayerReady || !this.isRickrolling || !this.rickrollFallback) {
+                return;
+            }
+            this.rickrollFallback.classList.remove('hidden');
+        }, 4500);
+    }
+
+    clearRickrollFallbackTimer() {
+        if (!this.rickrollLoadTimeout) {
+            return;
+        }
+        clearTimeout(this.rickrollLoadTimeout);
+        this.rickrollLoadTimeout = null;
+    }
+
+    handleRickrollLoad() {
+        this.rickrollPlayerReady = true;
+        this.clearRickrollFallbackTimer();
+        if (this.rickrollFallback) {
+            this.rickrollFallback.classList.add('hidden');
+        }
+    }
+
+    handleRickrollError() {
+        this.rickrollPlayerReady = false;
+        this.clearRickrollFallbackTimer();
+        if (this.rickrollFallback && this.isRickrolling) {
+            this.rickrollFallback.classList.remove('hidden');
+            this.rickrollFallback.href = this.customVideoUrl;
+        }
     }
 
     toggleSettings() {

@@ -735,6 +735,22 @@ input[type="range"]:focus-visible {
   width: 100%;
   aspect-ratio: 16/9;
   border: none;
+  display: block;
+}
+
+.rickroll-fallback {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  color: #fff0e8;
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.94), rgba(249, 115, 22, 0.94));
+}
+
+.rickroll-fallback:hover {
+  filter: brightness(1.08);
 }
 
 /* === Settings Panel === */
